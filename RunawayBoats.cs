@@ -1,6 +1,6 @@
 ﻿namespace Oxide.Plugins
 {
-    [Info("Runaway Boats", "0x89A", "1.1.0")]
+    [Info("Runaway Boats", "0x89A", "1.1.1")]
     [Description("Stops boats from sailing away on dismount")]
     class RunawayBoats : RustPlugin
     {
@@ -42,7 +42,7 @@
         {
             NextTick(() =>
             {
-                if (!boat.HasDriver() && !boat.HasAnyPassengers() || !boat.HasDriver() && boat.HasAnyPassengers() && withPassengers || boat.HasDriver() && notDriver) boat.EngineToggle(false);
+                if (!boat.HasDriver() && !boat.AnyMounted() || !boat.HasDriver() && boat.AnyMounted() && withPassengers || boat.HasDriver() && notDriver) boat.EngineToggle(false);
             });
         }
     }
