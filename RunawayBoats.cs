@@ -3,7 +3,7 @@ using Newtonsoft.Json;
 
 namespace Oxide.Plugins
 {
-    [Info("Runaway Boats", "0x89A", "1.2.0")]
+    [Info("Runaway Boats", "0x89A", "1.2.1")]
     [Description("Stops boats from sailing away on dismount")]
     class RunawayBoats : RustPlugin
     {
@@ -11,9 +11,15 @@ namespace Oxide.Plugins
 
         void Init() => permission.RegisterPermission(_canUse, this);
 
-        private void CanDismountEntity(BasePlayer player, MotorRowboat boat)
+        private void OnEntityDismounted(BaseMountable mount, BasePlayer player)
         {
             if (!permission.UserHasPermission(player.UserIDString, _canUse))
+            {
+                return;
+            }
+
+            MotorRowboat boat = mount.GetParentEntity() as MotorRowboat;
+            if (boat == null)
             {
                 return;
             }
@@ -21,22 +27,14 @@ namespace Oxide.Plugins
             StopBoat(boat);
         }
 
-        void StopBoat(MotorRowboat boat)
+        private void StopBoat(MotorRowboat boat)
         {
-            NextTick(() =>
+            bool hasDriver = boat.HasDriver();
+
+            if ((!hasDriver && (!boat.AnyMounted() || _config.stopWithPassengers)) || (hasDriver && _config.stopIfNotDriver))
             {
-                if (boat == null)
-                {
-                    return;
-                }
-
-                bool hasDriver = boat.HasDriver();
-
-                if ((!hasDriver && (!boat.AnyMounted() || _config.stopWithPassengers)) || (hasDriver && _config.stopIfNotDriver))
-                {
-                    boat.EngineToggle(false);
-                }
-            });
+                boat.gasPedal = 0;
+            }
         }
 
         #region -Configuration-
