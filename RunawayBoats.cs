@@ -1,50 +1,77 @@
-﻿namespace Oxide.Plugins
+﻿using System;
+using Newtonsoft.Json;
+
+namespace Oxide.Plugins
 {
-    [Info("Runaway Boats", "0x89A", "1.1.1")]
+    [Info("Runaway Boats", "0x89A", "1.2.0")]
     [Description("Stops boats from sailing away on dismount")]
     class RunawayBoats : RustPlugin
     {
-        private bool withPassengers;
-        private bool notDriver;
+        private const string _canUse = "runawayboats.use";
 
-        const string canUse = "runawayboats.use";
+        void Init() => permission.RegisterPermission(_canUse, this);
 
-        void Init() => permission.RegisterPermission(canUse, this);
-
-        protected override void LoadConfig()
+        private void CanDismountEntity(BasePlayer player, MotorRowboat boat)
         {
-            base.LoadConfig();
-            try
+            if (!permission.UserHasPermission(player.UserIDString, _canUse))
             {
-                withPassengers = (bool)Config["Stop if boat has passengers"];
-                notDriver = (bool)Config["Stop if dismounted player is not driver"];
+                return;
             }
-            catch
-            {
-                LoadDefaultConfig();
-            }
-        }
 
-        protected override void LoadDefaultConfig()
-        {
-            Config["Stop if boat has passengers"] = false;
-            Config["Stop if dismounted player is not driver"] = false;
-        }
-
-        object CanDismountEntity(BasePlayer player, BaseMountable mount)
-        {
-            MotorRowboat boat = mount.GetParentEntity() as MotorRowboat;
-            if (boat != null) StopBoat(boat);
-            return null;
+            StopBoat(boat);
         }
 
         void StopBoat(MotorRowboat boat)
         {
             NextTick(() =>
             {
-                if (!boat.HasDriver() && !boat.AnyMounted() || !boat.HasDriver() && boat.AnyMounted() && withPassengers || boat.HasDriver() && notDriver) boat.EngineToggle(false);
+                if (boat == null)
+                {
+                    return;
+                }
+
+                bool hasDriver = boat.HasDriver();
+
+                if ((!hasDriver && (!boat.AnyMounted() || _config.stopWithPassengers)) || (hasDriver && _config.stopIfNotDriver))
+                {
+                    boat.EngineToggle(false);
+                }
             });
         }
+
+        #region -Configuration-
+
+        private Configuration _config;
+
+        private class Configuration
+        {
+            [JsonProperty("Stop if dismounted player is not driver")]
+            public bool stopIfNotDriver = true;
+
+            [JsonProperty("Stop if boat has passengers")]
+            public bool stopWithPassengers = true;
+        }
+
+        protected override void LoadConfig()
+        {
+            base.LoadConfig();
+            try
+            {
+                _config = Config.ReadObject<Configuration>();
+                if (_config == null) throw new Exception();
+                SaveConfig();
+            }
+            catch
+            {
+                PrintError("Failed to load config, using default values");
+                LoadDefaultConfig();
+            }
+        }
+
+        protected override void LoadDefaultConfig() => _config = new Configuration();
+
+        protected override void SaveConfig() => Config.WriteObject(_config);
+
+        #endregion
     }
 }
-
